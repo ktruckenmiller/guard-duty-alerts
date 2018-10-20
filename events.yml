@@ -1,0 +1,85 @@
+Parameters:
+  SNSPhoneTopic:
+    Type: String
+Resources:
+  GuardDutyEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: guard duty events
+      EventPattern:
+        source:
+          - aws.guardduty
+      State: ENABLED
+      Targets:
+        - Arn:
+            Ref: GuardDutyLambda
+          Id: guard-topic
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GuardDutyLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - GuardDutyEvent
+        - Arn
+
+  GuardDutyLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: guard duty lambda function that deals with problems
+      Code:
+        S3Bucket: !FindInMap [CodeRegionMap, !Ref 'AWS::Region', LambdaCode]
+        S3Key: aws-gd-otherregion-lambda.zip
+      Environment:
+        Variables:
+          REGION: !Sub ${AWS::Region}
+      Role: !GetAtt GuardDutyLambdaRole.Arn
+      Timeout: 20
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      MemorySize: 128
+
+  GuardDutyLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: guard-duty-lambda-role
+      AssumeRolePolicyDocument:
+        Path: /
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+            - sts:AssumeRole
+          - Effect: "Allow"
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: guardduty
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - logs:*
+                Resource:
+                  - "*"
+
+
+  # PhoneAlert:
+  #   Type: AWS::SNS::TopicPolicy
+  #   Properties:
+  #     PolicyDocument:
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: events.amazonaws.com
+  #           Action: sns:Publish
+  #           Resource: '*'
+  #       Topics:
+  #         - !Ref SNSPhoneTopic
