@@ -15,6 +15,8 @@
 
     - set_fact:
         sha: "{{sha_obj.stdout[0:9]}}"
+      when: sha is undefined
+
     - set_fact:
         s3_prefix: "guard-duty-events/{{sha}}"
 
