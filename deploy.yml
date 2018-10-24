@@ -4,25 +4,39 @@
   vars:
     my_sns_arn: arn:aws:sns:us-west-2:601394826940:kevins-cell
     region: us-west-2
+    bucket: lambda-deploys
 
   tasks:
     - name: get sha version
       command: git rev-parse HEAD
       register: sha_obj
 
-    - debug: var=sha_obj
-    # - name: put template and s3
-    #   aws_s3:
-    #     bucket: lambda-deploys
-    #     object: /my/desired/key.txt
-    #     src: /usr/local/myfile.txt
-    #     mode: put
-    #
-    # - name: events deploy
-    #   cloudformation:
-    #     stack_name: "guard-duty-events"
-    #     state: present
-    #     region: "{{region}}"
-    #     template: "events.yml"
-    #     template_parameters:
-    #       SNSPhoneTopic: "{{ my_sns_arn }}"
+    - set_fact:
+        sha: "{{sha_obj.stdout[0:9]}}"
+    - set_fact:
+        s3_prefix: "guard-duty-events/{{sha}}"
+
+    - archive:
+        path:
+            - code
+        dest: deployment.zip
+        format: zip
+
+
+    - name: put template and s3
+      aws_s3:
+        bucket: "{{bucket}}"
+        object: "/{{s3_prefix}}/deployment.zip"
+        src: deployment.zip
+        mode: put
+
+    - name: events deploy
+      cloudformation:
+        stack_name: "guard-duty-events"
+        state: present
+        region: "{{region}}"
+        template: "events.yml"
+        template_parameters:
+          Bucket: "{{bucket}}"
+          S3Prefix: "{{s3_prefix}}"
+          SNSPhoneTopic: "{{ my_sns_arn }}"

@@ -1,6 +1,10 @@
 Parameters:
   SNSPhoneTopic:
     Type: String
+  Bucket:
+    Type: String
+  S3Prefix:
+    Type: String
 Resources:
   GuardDutyEvent:
     Type: AWS::Events::Rule
@@ -9,10 +13,12 @@ Resources:
       EventPattern:
         source:
           - aws.guardduty
+        detail-type:
+          - GuardDuty Finding
+
       State: ENABLED
       Targets:
-        - Arn:
-            Ref: GuardDutyLambda
+        - Arn: !GetAtt GuardDutyLambda.Arn
           Id: guard-topic
 
   PermissionForEventsToInvokeLambda:
@@ -31,8 +37,8 @@ Resources:
     Properties:
       Description: guard duty lambda function that deals with problems
       Code:
-        S3Bucket: !FindInMap [CodeRegionMap, !Ref 'AWS::Region', LambdaCode]
-        S3Key: aws-gd-otherregion-lambda.zip
+        S3Bucket: !Ref Bucket
+        S3Key: !Sub ${S3Prefix}/deployment.zip
       Environment:
         Variables:
           REGION: !Sub ${AWS::Region}
@@ -45,9 +51,9 @@ Resources:
   GuardDutyLambdaRole:
     Type: AWS::IAM::Role
     Properties:
+      Path: /
       RoleName: guard-duty-lambda-role
       AssumeRolePolicyDocument:
-        Path: /
         Statement:
           - Effect: Allow
             Principal:
@@ -60,15 +66,20 @@ Resources:
               AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
             Action: "sts:AssumeRole"
       Policies:
-        - PolicyName: guardduty
+        - PolicyName: sns-logs
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Effect: "Allow"
+              - Effect: Allow
                 Action:
                   - logs:*
                 Resource:
                   - "*"
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref SNSPhoneTopic
 
 
   # PhoneAlert:
