@@ -5,11 +5,13 @@
     my_sns_arn: arn:aws:sns:us-west-2:601394826940:kevins-cell
     region: us-west-2
     bucket: lambda-deploys
+    sha: "{{lookup('ENV', 'DRONE_COMMIT')}}"
 
   tasks:
     - name: get sha version
       command: git rev-parse HEAD
       register: sha_obj
+      when: sha is undefined
 
     - set_fact:
         sha: "{{sha_obj.stdout[0:9]}}"
