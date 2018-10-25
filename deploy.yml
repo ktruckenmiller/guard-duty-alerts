@@ -22,7 +22,7 @@
 
     - archive:
         path:
-            - code
+            - code/
         dest: deployment.zip
         format: zip
 
